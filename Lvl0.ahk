@@ -1,100 +1,85 @@
-#Persistent 
+#Persistent
 #SingleInstance Force
-SetBatchLines -1
-ListLines Off
+#NoEnv
 
-RealFile := "C:\ProgramData\Level0.ahk"
-ScriptURL := "https://raw.githubusercontent.com/mepro123/LevelZero/refs/heads/main/Lvl0.ahk"
-Website := "https://github.com/mepro123/LevelZero/releases"
+IniFile := "level0_path.ini"
 
-; Create GUI for Bootstrapper
-Gui, +Resize +MinSize +MaxSize ; Allow resizing but restrict small/large sizes
-Gui, Font, s12, Arial
-Gui, Color, 1e1e2e  ; Set background to dark mode
+; Load saved path or set default
+IniRead, level0Exe, %IniFile%, Settings, Path, % "C:\Program Files (x86)\Roblox\Versions\version-*\RobloxPlayerBeta.exe"
 
-; Header Text
-Gui, Add, Text, x20 y20 w280 h30 vStatus cWhite, Welcome to Level0!
-Gui, Add, Text, x20 y60 w280 h60 cWhite, Saved in %programdata%              Bootstrapper V1.0
-
-; Download Progress (Initially Hidden)
-Gui, Add, Text, x20 y100 w250 h30 vDownloadingText cWhite, 
-Gui, Add, Progress, x20 y130 w250 h20 vProgressBar, 0
-
-; Buttons
-Gui, Add, Button, x20 y170 w120 h30 gDownloadScript vDownloadBtn cWhite, 📥Install Level0
-Gui, Add, Button, x20 y170 w120 h30 gStartLevel0 vLaunchBtn cWhite Hidden, ▶️Launch Level0
-Gui, Add, Button, x150 y170 w120 h30 gUninstall cWhite, ❌Uninstall
-Gui, Add, Button, x20 y210 w250 h30 gBrowseFiles cWhite, 📂 Browse Files
-
-Gui, Show, w300 h260, 𝕃𝕖𝕧𝕖𝕝𝟘
-
-; If file exists, show the Launch button instead of Download
-If FileExist(RealFile) {
-    GuiControl, Hide, DownloadBtn
-    GuiControl, Show, LaunchBtn
-}
-
-return
-
-DownloadScript:
-    ; Show downloading text
-    GuiControl,, DownloadingText, ↻Downloading Level0...
-    GuiControl,, ProgressBar, 0
-    Sleep, 500  ; Small delay
-
-    ; Create HTTP Request (Using ServerXMLHTTP to fix errors)
-    pHTTP := ComObjCreate("MSXML2.ServerXMLHTTP")
-    pHTTP.Open("GET", ScriptURL, false)
-    pHTTP.Send()
-
-    ; Get the script content
-    ScriptContent := pHTTP.ResponseText
-
-    Loop, 100 {
-        GuiControl,, ProgressBar, %A_Index%
-        Random, sleepTime, 10,10
-        GuiControl,, DownloadingText, ↺Downloading Level0...
-        Sleep, %sleepTime%
-        GuiControl,, DownloadingText, ↻Downloading Level0...
-    }
-    
-    ; Write to file
-    FileDelete, %RealFile%  
-    FileAppend, %ScriptContent%, %RealFile%  
-
-    ; Update UI After Download
-    Run, %Website%
-    GuiControl,, ProgressBar, 100
-    GuiControl,, DownloadingText, Download Complete!
-    
-    ; Switch to Launch button
-    GuiControl, Hide, DownloadBtn
-    GuiControl, Show, LaunchBtn
-return
-
-StartLevel0:
-    Run, %RealFile%
-    ExitApp
-
-Uninstall:
-    If FileExist(RealFile) {
-        FileDelete, %RealFile%
-        MsgBox, Level0 has been uninstalled successfully.
-        GuiControl,, ProgressBar, 0
-        ; Show Download button again
-        GuiControl, Hide, LaunchBtn
-        GuiControl, Show, DownloadBtn
-    } else {
-        MsgBox, Level0 is not installed.
-    }
-return
+Gui, Font, s10, Verdana  ; Better font
+Gui, Add, Text, x20 y15, 🔹 Enter level0 Path:
+Gui, Add, Edit, vlevel0Path w400 x20 y40, %level0Exe%
+Gui, Add, Button, gBrowseFiles w100 h30 x430 y40, 📂 Browse
+Gui, Add, Button, gSavePath w100 h30 x20 y80, 💾 Save
+Gui, Add, Button, gStartlevel0 w150 h30 x130 y80, 🚀 Start level0
+Gui, Add, Button, gExitApp w80 h30 x290 y80, ❌ Exit
+Gui, Show, AutoSize Center, level0 Launcher
+Return
 
 BrowseFiles:
-    FileSelectFile, SelectedFile
-    if (SelectedFile) {
-        MsgBox, You selected: %SelectedFile%
+FileSelectFile, SelectedFile
+if (SelectedFile) {
+    GuiControl,, level0Path, %SelectedFile%
+}
+Return
+
+SavePath:
+Gui, Submit, NoHide
+IniWrite, %level0Path%, %IniFile%, Settings, Path
+MsgBox, ✅ Path Saved!
+Return
+
+Startlevel0:
+Gui, Submit, NoHide
+Launchlevel0(level0Path)
+Return
+
+Launchlevel0(level0Exe)
+{
+    Process, Exist, RobloxPlayerBeta.exe
+    If !ErrorLevel
+    {
+        Run, %level0Exe% --app, , UseErrorLevel
+        Sleep, 5000  ; Wait for level0 to open
     }
-return
+
+    level0Title := "ahk_exe RobloxPlayerBeta.exe"
+
+    ; Wait for level0 window
+    Loop 10
+    {
+        hwnd := WinExist(level0Title)
+        If (hwnd)
+            Break
+        Sleep, 500
+    }
+
+    If !hwnd
+    {
+        MsgBox, ❌ level0 Window Not Found!
+        ExitApp
+    }
+
+    ; Create GUI
+    Gui, +Resize +MinSize
+    Gui, Show, w1024 h768, level0
+
+    ; Embed level0 window inside AHK GUI
+    Gui +LastFound
+    ahkGui := WinExist()
+    DllCall("SetParent", "uint", hwnd, "uint", ahkGui)
+
+    ; Resize level0 window inside GUI
+    SetTimer, Resizelevel0, 100
+}
+
+Resizelevel0:
+    Gui, +LastFound
+    ahkGui := WinExist()
+    WinGetPos, gx, gy, gw, gh, ahk_id %ahkGui%
+    WinMove, ahk_id %hwnd%, , gx, gy, gw, gh
+Return
 
 ExitApp:
-    ExitApp
+ExitApp
